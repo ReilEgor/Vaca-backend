@@ -9,9 +9,8 @@ import (
 	"syscall"
 
 	_ "github.com/ReilEgor/Vaca/pkg"
-	outPkg "github.com/ReilEgor/Vaca/pkg"
-	"github.com/ReilEgor/Vaca/services/DataProcessorService/internal/broker/rabbitmq"
 	"github.com/ReilEgor/Vaca/services/DataProcessorService/internal/config"
+	"github.com/caarlos0/env/v11"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -22,13 +21,25 @@ func main() {
 	slog.SetDefault(logger)
 	logger = slog.With(slog.String("service", "main"))
 
-	dsn := os.Getenv("DB_SOURCE")
-	rabbitURL := os.Getenv("RABBIT_URL")
+	var cfg config.Config
+	if err := env.Parse(&cfg); err != nil {
+		logger.Error("failed to load config",
+			slog.Any("error", err),
+		)
+		os.Exit(1)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	stateServiceAddress := os.Getenv("STATE_SERVICE_ADDRESS")
-	searchServiceAddress := os.Getenv("SEARCH_SERVICE_ADDRESS")
-
-	app, cleanup, err := InitializeApp(dsn, rabbitmq.RabbitURL(rabbitURL), outPkg.RabbitMQVacancyQueue, logger, config.StateClientAddr(stateServiceAddress), config.SearchClientAddr(searchServiceAddress))
+	app, cleanup, err := InitializeApp(ctx,
+		cfg.DSN,
+		config.RabbitURL(cfg.RabbitURL),
+		config.SubscriberQueueName(cfg.SubscriberQueueName),
+		logger,
+		config.StateClientAddr(cfg.StateServiceAddress),
+		config.SearchClientAddr(cfg.SearchServiceAddress),
+		config.PublisherQueueName(cfg.PublisherQueueName),
+	)
 	if err != nil {
 		logger.Error("failed to initialize app",
 			slog.Any("error", err),
@@ -37,9 +48,6 @@ func main() {
 	}
 
 	defer cleanup()
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())

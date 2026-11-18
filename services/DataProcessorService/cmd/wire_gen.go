@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/ReilEgor/Vaca/services/DataProcessorService/internal/broker/rabbitmq"
@@ -25,15 +26,14 @@ import (
 
 // Injectors from wire.go:
 
-func InitializeApp(dsn string, rabbitURL rabbitmq.RabbitURL, qName rabbitmq.SubscriberQueueName, logger *slog.Logger, stateClientAddr config.StateClientAddr, searchClientAddr config.SearchClientAddr) (*App, func(), error) {
+func InitializeApp(ctx context.Context, dsn string, rabbitURL config.RabbitURL, qSubscriberName config.SubscriberQueueName, logger *slog.Logger, stateClientAddr config.StateClientAddr, searchClientAddr config.SearchClientAddr, qPublisherName config.PublisherQueueName) (*App, func(), error) {
 	stateClientStateClient := stateClient.NewStateClient(stateClientAddr)
-	db, cleanup, err := postgres.NewPostgresDB(dsn)
+	pool, cleanup, err := postgres.NewPostgresDB(ctx, dsn)
 	if err != nil {
 		return nil, nil, err
 	}
-	vacancyRepository := postgres.NewVacancyRepository(db)
+	vacancyRepository := postgres.NewVacancyRepository(pool)
 	searchClientSearchClient := searchClient.NewSearchClient(searchClientAddr)
-	dataProcessorInteractor := usecase.NewDataProcessorInteractor(stateClientStateClient, vacancyRepository, searchClientSearchClient)
 	connection, cleanup2, err := rabbitmq.NewRabbitMQConn(rabbitURL)
 	if err != nil {
 		cleanup()
@@ -45,7 +45,9 @@ func InitializeApp(dsn string, rabbitURL rabbitmq.RabbitURL, qName rabbitmq.Subs
 		cleanup()
 		return nil, nil, err
 	}
-	dataSubscriber := rabbitmq.NewTaskSubscriber(channel, dataProcessorInteractor, logger, qName)
+	dataPublisher := rabbitmq.NewDataPublisher(channel, qPublisherName)
+	dataProcessorInteractor := usecase.NewDataProcessorInteractor(stateClientStateClient, vacancyRepository, searchClientSearchClient, dataPublisher)
+	dataSubscriber := rabbitmq.NewTaskSubscriber(channel, dataProcessorInteractor, logger, qSubscriberName)
 	app := &App{
 		Logic:      dataProcessorInteractor,
 		Repository: vacancyRepository,
@@ -63,7 +65,7 @@ func InitializeApp(dsn string, rabbitURL rabbitmq.RabbitURL, qName rabbitmq.Subs
 
 var UsecaseSet = wire.NewSet(usecase.NewDataProcessorInteractor, wire.Bind(new(domain.DataProcessorUsecase), new(*usecase.DataProcessorInteractor)))
 
-var BrokerSet = wire.NewSet(rabbitmq.NewRabbitMQConn, rabbitmq.NewRabbitMQChannel, rabbitmq.NewTaskSubscriber, wire.Bind(new(domain.DataSubscriber), new(*rabbitmq.DataSubscriber)))
+var BrokerSet = wire.NewSet(rabbitmq.NewRabbitMQConn, rabbitmq.NewRabbitMQChannel, rabbitmq.NewTaskSubscriber, rabbitmq.NewDataPublisher, wire.Bind(new(domain.DataPublisher), new(*rabbitmq.DataPublisher)), wire.Bind(new(domain.DataSubscriber), new(*rabbitmq.DataSubscriber)))
 
 var RepositorySet = wire.NewSet(postgres.NewPostgresDB, postgres.NewVacancyRepository)
 

@@ -9,11 +9,27 @@ import (
 
 	_ "github.com/ReilEgor/Vaca/pkg"
 	outPkg "github.com/ReilEgor/Vaca/pkg"
+	_ "github.com/ReilEgor/Vaca/services/CoordinatorService/docs"
 	rabbitmq "github.com/ReilEgor/Vaca/services/CoordinatorService/internal/broker/rabbitmq"
 	"github.com/ReilEgor/Vaca/services/CoordinatorService/internal/config"
 	"github.com/joho/godotenv"
 )
 
+// @title           Vaca Coordinator API
+// @version         1.0
+// @description     API Server for Job Aggregator Coordinator Service.
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   Yehor Reil
+// @contact.url    https://github.com/ReilEgor
+
+// @host      localhost
+// @BasePath  /api/v1
+
+// @securityDefinitions.apikey  ApiKeyAuth
+// @in                          header
+// @name                        Authorization
+// @description                 Description for "Bearer <token>"
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,

@@ -19,6 +19,14 @@ type ListSourcesResponse struct {
 	Total   int64            `json:"total" binding:"required,gte=0"`
 }
 
+// GetAvailableSources godoc
+// @Summary      Get all available job sources
+// @Description  Retrieve a list of all job boards and platforms supported by the aggregator
+// @Tags         sources
+// @Produce      json
+// @Success      200  {object}  ListSourcesResponse
+// @Failure      500  {object}  map[string]string "Internal server error with domain.ErrFailedToGetSources"
+// @Router       /sources [get]
 func (h *Handler) GetAvailableSources(c *gin.Context) {
 	ctx := c.Request.Context()
 
