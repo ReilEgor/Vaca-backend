@@ -166,3 +166,34 @@ Distributed under the MIT License. See `LICENSE` for more information.
 **Developed by [YehorReil](https://github.com/ReilEgor)**
 
 
+
+---
+
+## UserService
+
+Accounts, roles and personal data (ТЗ 4.1.2, 4.1.4, 4.1.5). Authentication is done by Keycloak (realm `vaca_realm`);
+the service only verifies the JWT signature against the realm JWKS and takes the role (`user` / `manager` / `admin`)
+from `realm_access.roles`. The profile is created on the first authenticated request. Blocked accounts get `403`.
+
+Routed by nginx under `/api/v1/users/**` and `/api/v1/admin/**`. All routes need `Authorization: Bearer <token>`.
+
+| Method | Path | Role | Description |
+|--------|------|------|-------------|
+| GET/PATCH/DELETE | `/users/me` | user | Profile (stack, experience, location, expected salary); delete own account |
+| GET/PUT | `/users/me/notification-settings` | user | Frequency, types, mute |
+| GET/POST | `/users/me/subscriptions` | user | Filter-triggers; limit 3 (default plan) / 20 (pro) active |
+| PATCH/DELETE | `/users/me/subscriptions/{id}` | user | Edit, pause, remove |
+| GET | `/users/me/saved` | user | Saved vacancies (`limit`, `offset`) |
+| PUT/DELETE | `/users/me/saved/{vacancy_id}` | user | Save (snapshot in body) / remove |
+| GET/POST | `/users/me/history` | user | View history |
+| POST | `/users/me/telegram/code` | user | One-time code (10 min) to bind a Telegram chat |
+| DELETE | `/users/me/telegram` | user | Unlink Telegram |
+| GET | `/admin/users`, `/admin/users/{id}`, `/admin/users/{id}/activity` | manager | Users and audit trail (manager sees only users, admin also managers) |
+| PUT | `/admin/users/{id}/plan` | manager | Change tariff plan |
+| POST | `/admin/users/{id}/block` | manager | Block |
+| POST | `/admin/users/{id}/unblock`, DELETE `/admin/users/{id}` | admin | Unblock, delete |
+| POST | `/internal/telegram/link` | `X-Internal-Token` | Called by the bot; not exposed through nginx |
+
+Not done yet: creating manager accounts (needs the Keycloak admin API), payments, analytics, notification delivery.
+
+Checks: `make lint`, `make unit`, `make integration` (Docker needed).

@@ -1,0 +1,34 @@
+name: UserService
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: [ 'services/UserService/**', '.golangci.yml', 'Makefile', '.github/workflows/user-service.yml' ]
+  pull_request:
+    paths: [ 'services/UserService/**', '.golangci.yml', 'Makefile', '.github/workflows/user-service.yml' ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: services/UserService
+          args: --timeout=5m --build-tags integration
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: Unit tests
+        run: make unit
+      - name: Integration tests (PostgreSQL in Testcontainers)
+        run: make integration
